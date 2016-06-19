@@ -1115,7 +1115,7 @@ key_action['cursor_right'] = proc {
 
 key_action['cursor_word_left'] = proc {
 	if command_buffer_pos > 0
-		if m = command_buffer[0...(command_buffer_pos-1)].match(/.*(\s)/)
+		if m = command_buffer[0...(command_buffer_pos-1)].match(/.*(\w[^\w\s]|\W\w|\s\S)/)
 			new_pos = m.begin(1) + 1
 		else
 			new_pos = 0
@@ -1136,8 +1136,8 @@ key_action['cursor_word_left'] = proc {
 
 key_action['cursor_word_right'] = proc {
 	if command_buffer_pos < command_buffer.length
-		if m = command_buffer[command_buffer_pos..-1].match(/\s([^\s])/)
-			new_pos = command_buffer_pos + m.begin(1)
+		if m = command_buffer[command_buffer_pos..-1].match(/\w[^\w\s]|\W\w|\s\S/)
+			new_pos = command_buffer_pos + m.begin(0) + 1
 		else
 			new_pos = command_buffer.length
 		end
@@ -1665,24 +1665,65 @@ Thread.new {
 					end
 					if window = stream_handler[current_stream]
 						if current_stream == 'death'
-							# fixme: has been vaporized!
-							# fixme: ~ off to a rough start
-							if text =~ /^\s\*\s(The death cry of )?([A-Z][a-z]+) (?:just bit the dust!|echoes in your mind!)/
+              if text =~ /^\s\*\s(?:.*\s)(vaporized|incinerated)!$/
+                old_length = text.length
+                text = $1.capitalize + ':'
+								line_colors.each { |h|
+									h[:start] -= (old_length - text.length)
+									h[:end] = [ h[:end], text.length ].min
+								}
+								line_colors.delete_if { |h| h[:start] >= h[:end] }
+              elsif text =~ /^\s\*\s(The death cry of )?([A-Z][a-z]+) (just bit the dust|echoes in your mind|is going home on (?:his|her) shield|just turned (?:his|her) last page|is dust in the wind|is six hundred feet under|just took a long walk off of a short pier|just punched a one-way ticket|was just put on ice|has gone to feed the fishes|just got squashed|just gave up the ghost|is off to a rough start! (She|He) just bit the dust)( in the Elemental Confluence)?!/
 								front_count = 3
 								front_count += 17 if $1
 								name = $2
-								text = "#{name} #{Time.now.strftime('%l:%M%P').sub(/^0/, '')}"
+                town, town_color = case $3
+                  when "just bit the dust"
+                    ['WL', 'ed9121']
+                  when "echoes in your mind"
+                    ['Rift', '8e388e']
+                  when "is going home on his shield" || "is going home on her shield"
+                    ["T'V", '8b0000']
+                  when "just turned his last page" || "just turned her last page"
+                    ["T'I", '1e90ff']
+                  when "is dust in the wind"
+                    ['FWI', '228b22']
+                  when "is six hundred feet under"
+                    ['Zul', '68838b']
+                  when "just took a long walk off of a short pier"
+                    ['Sol', 'c67171']
+                  when "just punched a one-way ticket"
+                    ['KD', 'cd3700']
+                  when "was just put on ice"
+                    ['Ice', '63b8ff']
+                  when "has gone to feed the fishes"
+                    ['Rest', '2e8b57']
+                  when "just got squashed"
+                    ['Cys', '8968cd']
+                  when "just gave up the ghost"
+                    ['Trl', 'd2b48c']
+                  when "is off to a rough start! He just bit the dust" || "is off to a rough start! She just bit the dust"
+                    ['Newb', 'ebebeb']
+                end
+                town += ' EC' if !$4.nil?
+								text = "#{name} #{town} #{Time.now.strftime('%l:%M%P').sub(/^0/, '')}"
 								line_colors.each { |h|
 									h[:start] -= front_count
 									h[:end] = [ h[:end], name.length ].min
 								}
 								line_colors.delete_if { |h| h[:start] >= h[:end] }
-								h = {
+								t = {
 									:start => (name.length+1),
-									:end => text.length,
+									:end => (name.length + town.length + 1),
+									:fg => town_color,
+								}
+                h = {
+									:start => (name.length + 1 + town.length + 1),
+									:end => (line.length),
 									:fg => 'ff0000',
 								}
-								line_colors.push(h)
+								line_colors.push(t)
+                line_colors.push(h)
 							end
 						elsif current_stream == 'logons'
 							foo = { 'joins the adventure.' => '007700', 'returns home from a hard day of adventuring.' => '777700', 'has disconnected.' => 'aa7733' }
